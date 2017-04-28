@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "require(dplyr)\nrequire(TMB)\n\ncompile('DM_dyn_sig.cpp')\ndyn.load(dynlib(\"DM_dyn_sig\"))\n\ndat <- readLines('crk2.dat')\n\nncreeks <- gsub('\\t', '', dat[2]) %>% as.numeric()\nnrel <- gsub('\\t', '', dat[4])  %>% as.numeric()\nnsites <- gsub('\\t', '', dat[6]) %>% as.numeric()\nnperiods <- gsub('\\t', '', dat[8]) %>% as.numeric()\nntraps <- gsub('\\t', '', dat[10]) %>% as.numeric()\n\ncount.ls <- strsplit(dat[11 + 1:(ncreeks*nsites*nperiods)], '\\t')\ncount.mat <- do.call(rbind, count.ls)[,1:ntraps] %>% apply(2, as.numeric)\n\ndistances <- strsplit(dat[13 + ncreeks*nsites*nperiods], '\\t')[[1]] %>% as.numeric()\ntimes <- strsplit(dat[15 + ncreeks*nsites*nperiods], '\\t')[[1]] %>% as.numeric()\n\nData <- list(disp_model = 3,\n              # ncreeks = ncreeks,\n              nrel = nrel,\n              nsites = nsites,\n              nperiods = nperiods,\n              ntraps = ntraps,\n              countmat = count.mat,\n              distances = distances,\n              times = times,\n              full_site_width = 5)\n\nParameters <- list(logit_survival = log(0.99)/log(.01),\n                   logit_detectability = 0,\n                   log_sig_disp = rep(log(1), nperiods))\n\n\nmodel <- MakeADFun(Data, Parameters, DLL=\"DM_dyn_sig\")\nmodel$env$beSilent()\nOpt = nlminb(start=model$par, objective=model$fn, gradient=model$gr)\nsummary(sdreport(model))\n\nreport <- model$report()[[1]]\ncolnames(report) <- c('obscount', 'predcount', 'times', 'distances')\nplot(report[,1], report[,2], xlab = 'obscount', ylab='predcount')\npearson.resid <- (report[,'obscount'] - report[,'predcount'])/sqrt(report[,'predcount'])\nplot(report[,'predcount'], pearson.resid)\n\n\ndetectability         0.05140536 1.061541e-02\nsig_disp             37.22104860 1.082432e+01\nsig_disp            149.79671750 4.744857e+01\nsig_disp             22.79334599 6.114543e+00\nsig_disp             55.92583823 1.556798e+01\nsig_disp            118.06119073 4.224284e+01\nsig_disp            222.40320588 1.723668e+02\nsig_disp             13.00019325 1.042115e+01\nsig_disp              2.99624710 7.775782e+00\nsig_disp             29.26261636 2.643645e+01\n",
+    "created" : 1493151147203.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3358274340",
+    "id" : "397EDEE0",
+    "lastKnownWriteTime" : 1493411960,
+    "last_content_update" : 1493411960436,
+    "path" : "C:/Users/Kiva Oken/Desktop/fundulus-dispersal/for_TMB.R",
+    "project_path" : "for_TMB.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
