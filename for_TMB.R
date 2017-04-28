@@ -1,3 +1,7 @@
+## Notes upon leaving: works Olaf's way. Problem with my way is that the integrated probability is numerically 
+## equivalent to zero which messes everything up. I don't understand why the integrated probability is zero when
+## the density at the midpoint isn't.
+
 require(dplyr)
 require(TMB)
 
@@ -27,16 +31,21 @@ Data <- list(disp_model = 1,
               countmat = count.mat,
               distances = distances,
               times = times,
-              full_site_width = 5)
+              full_site_width = 10)
 
-Parameters <- list(logit_survival = log(0.99)/log(.01),
-                   logit_detectability = 0,
-                   log_sig_disp = rep(log(1), nperiods))
+# Parameters <- list(logit_survival = log(0.99)/log(.01),
+#                    logit_detectability = 0,
+#                    log_sig_disp = rep(log(5), nperiods))
+Parameters <- list(survival = .5,
+                   detectability = .5,
+                   sig_disp = rep(5, 1))
 
 
 model <- MakeADFun(Data, Parameters, DLL="DM_dyn_sig")
+model$report()
 model$env$beSilent()
-Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr)
+Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr, lower = c(0,0,rep(0.001, 1)), 
+             upper = c(1, 1, rep(10000, 1)))
 summary(sdreport(model))
 
 report <- model$report()[[1]]
