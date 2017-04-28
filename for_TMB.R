@@ -1,9 +1,6 @@
 require(dplyr)
 require(TMB)
 
-
-
-#blah blah blah
 compile('DM_dyn_sig.cpp')
 dyn.load(dynlib("DM_dyn_sig"))
 
@@ -21,7 +18,7 @@ count.mat <- do.call(rbind, count.ls)[,1:ntraps] %>% apply(2, as.numeric)
 distances <- strsplit(dat[13 + ncreeks*nsites*nperiods], '\t')[[1]] %>% as.numeric()
 times <- strsplit(dat[15 + ncreeks*nsites*nperiods], '\t')[[1]] %>% as.numeric()
 
-Data <- list(disp_model = 3,
+Data <- list(disp_model = 1,
               # ncreeks = ncreeks,
               nrel = nrel,
               nsites = nsites,
@@ -47,15 +44,3 @@ colnames(report) <- c('obscount', 'predcount', 'times', 'distances')
 plot(report[,1], report[,2], xlab = 'obscount', ylab='predcount')
 pearson.resid <- (report[,'obscount'] - report[,'predcount'])/sqrt(report[,'predcount'])
 plot(report[,'predcount'], pearson.resid)
-
-
-detectability         0.05140536 1.061541e-02
-sig_disp             37.22104860 1.082432e+01
-sig_disp            149.79671750 4.744857e+01
-sig_disp             22.79334599 6.114543e+00
-sig_disp             55.92583823 1.556798e+01
-sig_disp            118.06119073 4.224284e+01
-sig_disp            222.40320588 1.723668e+02
-sig_disp             13.00019325 1.042115e+01
-sig_disp              2.99624710 7.775782e+00
-sig_disp             29.26261636 2.643645e+01

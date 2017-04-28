@@ -16,16 +16,20 @@ Type objective_function<Type>::operator() ()
   DATA_SCALAR(full_site_width);
 
 
-  PARAMETER(logit_survival);
-  PARAMETER(logit_detectability);
-  PARAMETER_VECTOR(log_sig_disp);
+  // PARAMETER(logit_survival);
+  // PARAMETER(logit_detectability);
+  // PARAMETER_VECTOR(log_sig_disp);
 
-  Type survival = exp(logit_survival)/(1+exp(logit_survival));
-  Type detectability = exp(logit_detectability)/(1+exp(logit_detectability));
-  vector<Type> sig_disp(nperiods);
-  for(int period=0; period<nperiods; period++) {
-    sig_disp(period) = exp(log_sig_disp(period));
-  }
+  PARAMETER(survival);
+  PARAMETER(detectability);
+  PARAMETER_VECTOR(sig_disp);
+
+  // Type survival = exp(logit_survival)/(1+exp(logit_survival));
+  // Type detectability = exp(logit_detectability)/(1+exp(logit_detectability));
+  // vector<Type> sig_disp(nperiods);
+  // for(int period=0; period<nperiods; period++) {
+  //   sig_disp(period) = exp(log_sig_disp(period));
+  // }
 
   Type site_width = full_site_width / Type(2.0);
 
@@ -44,8 +48,9 @@ Type objective_function<Type>::operator() ()
     for (int k=0; k<ntraps; k++)
     {
       if(disp_model == 1) { // 1 = half-normal
-        dist_factor(counter) = Type(2.0) * (pnorm(distances(j)+site_width, Type(0.0), sig_disp(i)) - 
-            pnorm(distances(j)-site_width, Type(0.0), sig_disp(i)));
+        // dist_factor(counter) = Type(2.0) * (pnorm(distances(j)+site_width, Type(0.0), sig_disp(i)) - 
+        //     pnorm(distances(j)-site_width, Type(0.0), sig_disp(i)));
+        dist_factor(counter) = Type(2.0) * dnorm(distances(j), Type(0.0), sig_disp(i));
       } else if(disp_model == 2) { // 2 = exponential
         dist_factor(counter) = (pexp(distances(j)+site_width, sig_disp(i)) - //F(d+site_width)
           pexp(distances(j)-site_width, sig_disp(i))); //F(d-site_width)
@@ -60,8 +65,8 @@ Type objective_function<Type>::operator() ()
 
      outmat(counter, 0) = obscount(counter);
      outmat(counter, 1) = predcount(counter);
-     outmat(counter, 2) = times(i);
-     outmat(counter, 3) = distances(j);
+     outmat(counter, 2) = dpois(obscount(counter), predcount(counter), true); // times(i);
+     outmat(counter, 3) = dist_factor(counter); //distances(j);
 
      counter++;
     }
