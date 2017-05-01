@@ -22,7 +22,7 @@ count.mat <- do.call(rbind, count.ls)[,1:ntraps] %>% apply(2, as.numeric)
 distances <- strsplit(dat[13 + ncreeks*nsites*nperiods], '\t')[[1]] %>% as.numeric()
 times <- strsplit(dat[15 + ncreeks*nsites*nperiods], '\t')[[1]] %>% as.numeric()
 
-Data <- list(disp_model = 1,
+Data <- list(# disp_model = 1,
               # ncreeks = ncreeks,
               nrel = nrel,
               nsites = nsites,
@@ -31,7 +31,7 @@ Data <- list(disp_model = 1,
               countmat = count.mat,
               distances = distances,
               times = times,
-              full_site_width = 10)
+              kappa = 2) # 2 for half normal, 1 for exponential
 
 # Parameters <- list(logit_survival = log(0.99)/log(.01),
 #                    logit_detectability = 0,
