@@ -31,21 +31,22 @@ Data <- list(# disp_model = 1,
               countmat = count.mat,
               distances = distances,
               times = times,
-              kappa = 2) # 2 for half normal, 1 for exponential
+              kappa = 1) # 2 for half normal, 1 for exponential
 
 # Parameters <- list(logit_survival = log(0.99)/log(.01),
 #                    logit_detectability = 0,
 #                    log_sig_disp = rep(log(5), nperiods))
-Parameters <- list(survival = .5,
+Parameters <- list(survival = .9,
                    detectability = .5,
-                   sig_disp = rep(5, 1))
+                   sig_disp = 5)
 
 
 model <- MakeADFun(Data, Parameters, DLL="DM_dyn_sig")
-model$report()
+# model$report()
 model$env$beSilent()
-Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr, lower = c(0,0,rep(0.001, 1)), 
-             upper = c(1, 1, rep(10000, 1)))
+Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr, 
+             lower = c(0,.001, rep(.001, nperiods)), 
+             upper = c(1, 10000, rep(10000, nperiods)))
 summary(sdreport(model))
 
 report <- model$report()[[1]]
