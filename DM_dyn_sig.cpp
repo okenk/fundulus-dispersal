@@ -74,8 +74,8 @@ Type objective_function<Type>::operator() ()
 
      outmat(counter, 0) = obscount(counter);
      outmat(counter, 1) = predcount(counter);
-     outmat(counter, 2) = dpois(obscount(counter), predcount(counter), true); // times(i);
-     outmat(counter, 3) = hazard(j); //distances(j);
+     outmat(counter, 2) = distances(j); // times(i);
+     outmat(counter, 3) = times(i); //distances(j);
 
      counter++;
     }
