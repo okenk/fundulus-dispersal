@@ -18,8 +18,8 @@ Type objective_function<Type>::operator() ()
 
   // PARAMETER(logit_survival);
   // PARAMETER(log_detectability);
-  PARAMETER(sig_disp_alpha);
-  PARAMETER(sig_disp_beta);
+  // PARAMETER_VECTOR(log_sig_disp);
+
   PARAMETER(survival);
   PARAMETER(detectability);
   // PARAMETER_VECTOR(sig_disp);
@@ -36,25 +36,16 @@ Type objective_function<Type>::operator() ()
 
   vector<Type> predcount(nsites * nperiods * ntraps);
   vector<Type> obscount(nsites * nperiods * ntraps);
-  // vector<Type> dist_factor(nsites * nperiods * ntraps);
+  vector<Type> dist_factor(nsites * nperiods * ntraps);
   vector<Type> hazard(nsites);
   matrix<Type> outmat(nsites * nperiods * ntraps, 4);
   vector<Type> pcapture(nperiods);
-  vector<Type> sig_disp(nperiods);
-
   Type f = 0; // objective function value
 
   int counter = 0;
-  for (int i=0; i<nperiods; i++)
-  {
-   sig_disp(i) = sig_disp_alpha * times(i)/(1 + sig_disp_beta * times(i)); 
-   for(int site=0; site<nsites; site++) {
-     hazard(site) = detectability * exp(-pow(distances(site)/sig_disp(i), kappa));
-   }
-   pcapture(i) = 1 - exp(-hazard.sum()); 
-
-   for (int j=0; j<nsites; j++) {
-    for (int k=0; k<ntraps; k++) {
+  for (int i=0; i<nperiods; i++) {
+    for (int j=0; j<nsites; j++) {
+      for (int k=0; k<ntraps; k++) {
 
       // if(disp_model == 1) { // 1 = half-normal
       //   // dist_factor(counter) = Type(2.0) * (pnorm(distances(j)+site_width, Type(0.0), sig_disp(i)) - 
@@ -74,8 +65,8 @@ Type objective_function<Type>::operator() ()
 
      outmat(counter, 0) = obscount(counter);
      outmat(counter, 1) = predcount(counter);
-     outmat(counter, 2) = distances(j); // times(i);
-     outmat(counter, 3) = times(i); //distances(j);
+     outmat(counter, 2) = dpois(obscount(counter), predcount(counter), true); // times(i);
+     outmat(counter, 3) = hazard(j); //distances(j);
 
      counter++;
     }
