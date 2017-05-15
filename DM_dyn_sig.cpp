@@ -3,8 +3,7 @@
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
-  // DATA_INTEGER(disp_model); // 1 = half-normal, 2 = exponential, 3 = half-cauchy
-  // DATA_INTEGER(like_model) // 1 = poisson, 2 = negative binomial. Not currently used.
+  DATA_INTEGER(disp_model); // 1 = half-normal, 2 = exponential, 3 = half-cauchy
   // DATA_INTEGER(ncreeks);  // ncreeks is the number of release locations (creeks). Not currently used.
   DATA_INTEGER(nrel);  // nrel is the number of tagged fish released
   DATA_INTEGER(nsites); // the number of trapping sites at each location
@@ -13,8 +12,7 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(countmat); //(1,nsites*nperiods,1,ntraps) // the number of recap events at each location
   DATA_VECTOR(distances); //(1,nsites) // vector of distances from release site to center of recap site
   DATA_VECTOR(times); //(1,nperiods) // vector of times since release
-  DATA_SCALAR(kappa);
-
+  // DATA_SCALAR(site_width);
 
   // PARAMETER(logit_survival);
   // PARAMETER(log_detectability);
@@ -23,7 +21,7 @@ Type objective_function<Type>::operator() ()
   PARAMETER(survival);
   PARAMETER(detectability);
   // PARAMETER_VECTOR(sig_disp);
-  // PARAMETER(sig_disp);
+  PARAMETER(sig_disp);
 
   // Type survival = exp(logit_survival)/(1+exp(logit_survival));
   // Type detectability = exp(logit_detectability)/(1+exp(logit_detectability));
@@ -37,9 +35,7 @@ Type objective_function<Type>::operator() ()
   vector<Type> predcount(nsites * nperiods * ntraps);
   vector<Type> obscount(nsites * nperiods * ntraps);
   vector<Type> dist_factor(nsites * nperiods * ntraps);
-  vector<Type> hazard(nsites);
-  matrix<Type> outmat(nsites * nperiods * ntraps, 4);
-  vector<Type> pcapture(nperiods);
+  matrix<Type> outmat(nsites * nperiods * ntraps, 5);
   Type f = 0; // objective function value
 
   int counter = 0;
@@ -47,27 +43,30 @@ Type objective_function<Type>::operator() ()
     for (int j=0; j<nsites; j++) {
       for (int k=0; k<ntraps; k++) {
 
-      // if(disp_model == 1) { // 1 = half-normal
-      //   // dist_factor(counter) = Type(2.0) * (pnorm(distances(j)+site_width, Type(0.0), sig_disp(i)) - 
-      //   //     pnorm(distances(j)-site_width, Type(0.0), sig_disp(i)));
-      //   dist_factor(counter) = Type(2.0) * dnorm(distances(j), Type(0.0), sig_disp);
-      // } else if(disp_model == 2) { // 2 = exponential
-      //   dist_factor(counter) = (pexp(distances(j)+site_width, sig_disp) - //F(d+site_width)
-      //     pexp(distances(j)-site_width, sig_disp)); //F(d-site_width)
-      // } else if(disp_model == 3) { // 3 = half-cauchy
-      //   dist_factor(counter) = (Type(2.0)/PI) * atan((distances(j)+site_width)/sig_disp) - //F(d+site_width)
-      //     (Type(2.0)/PI) * atan((distances(j)-site_width)/sig_disp); //F(d-site_width)
-      // }
+      if(disp_model == 1) { // 1 = half-normal
+        // dist_factor(counter) = Type(2.0) * (pnorm(distances(j)+site_width, Type(0.0), sig_disp) - 
+        //     pnorm(distances(j)-site_width, Type(0.0), sig_disp));
+        dist_factor(counter) = Type(2.0) * dnorm(distances(j), Type(0.0), sig_disp);
+      } else if(disp_model == 2) { // 2 = exponential
+        // dist_factor(counter) = (pexp(distances(j)+site_width, 1/sig_disp) - //F(d+site_width)
+        //   pexp(distances(j)-site_width, 1/sig_disp)); //F(d-site_width)
+        dist_factor(counter) = dexp(distances(j), pow(sig_disp, -1));
+      } else if(disp_model == 3) { // 3 = half-cauchy
+        // dist_factor(counter) = (Type(2.0)/PI) * atan((distances(j)+site_width)/sig_disp) - //F(d+site_width)
+        //   (Type(2.0)/PI) * atan((distances(j)-site_width)/sig_disp); //F(d-site_width)
+        dist_factor(counter) = Type(2.0) / (PI*sig_disp * (1 + pow(distances(j)/sig_disp,2)));
+      }
 
-     predcount(counter) = nrel * pow(survival, times(i)) * pcapture(i) * (hazard(j)/hazard.sum());
+     predcount(counter) = nrel * pow(survival, times(i)) * detectability * dist_factor(counter);
      obscount(counter) = countmat(j+(i*nsites), k);
      f -= dpois(obscount(counter), predcount(counter), true);
 
      outmat(counter, 0) = obscount(counter);
      outmat(counter, 1) = predcount(counter);
-     outmat(counter, 2) = dpois(obscount(counter), predcount(counter), true); // times(i);
-     outmat(counter, 3) = hazard(j); //distances(j);
-
+     outmat(counter, 2) = times(i);
+     outmat(counter, 3) = distances(j);
+     outmat(counter, 4) = dist_factor(counter);
+     
      counter++;
     }
    }   
