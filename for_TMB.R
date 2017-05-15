@@ -57,6 +57,8 @@ colnames(report) <- c('obscount', 'predcount', 'times', 'distances', 'dist_facto
 plot(report[,1], report[,2], xlab = 'obscount', ylab='predcount')
 pearson.resid <- (report[,'obscount'] - report[,'predcount'])/sqrt(report[,'predcount'])
 plot(report[,'predcount'], pearson.resid)
+# Residuals skew positive, i.e., counts are under-predicted. 
+# This is not the case with simulated data.
 
 # Examine data
 require(ggplot2)
