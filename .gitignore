@@ -1,5 +1,6 @@
 *.dat
 *.docx
+*.html
 
 # Compiled Object files
 *.slo

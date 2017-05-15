@@ -37,7 +37,7 @@ Data <- list(disp_model = 3,
 Parameters <- list(
                    survival = .9,
                    detectability = .7,
-                   sig_disp = 10
+                   sig_disp = rep(10, 1)
                    )
 
 
