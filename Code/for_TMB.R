@@ -6,7 +6,7 @@ compile('DM_dyn_sig.cpp')
 dyn.load(dynlib("DM_dyn_sig"))
 
 # Read in data
-dat <- readLines('crk2.dat')
+dat <- readLines('data/crk2.dat')
 
 ncreeks <- gsub('\t', '', dat[2]) %>% as.numeric()
 nrel <- gsub('\t', '', dat[4])  %>% as.numeric()
@@ -21,7 +21,7 @@ distances <- strsplit(dat[13 + ncreeks*nsites*nperiods], '\t')[[1]] %>% as.numer
 times <- strsplit(dat[15 + ncreeks*nsites*nperiods], '\t')[[1]] %>% as.numeric()
 
 # Set up model
-Data <- list(disp_model = 3,
+Data <- list(disp_model = 1,
               # ncreeks = ncreeks,
               nrel = nrel,
               nsites = nsites,
@@ -41,13 +41,13 @@ Parameters <- list(
                    )
 
 
-model <- MakeADFun(Data, Parameters, DLL="DM_dyn_sig")
+model <- MakeADFun(Data, Parameters, DLL="DM_dyn_sig") 
 model$env$beSilent()
 
 # Fit model
 Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr, 
              lower = c(0, 0, .0001), #, rep(.001, nperiods)), 
-             upper = c(1, 1, 100000))
+             upper = c(1, 100, 100000))
 
 # Examine fitted model
 summary(sdreport(model))
