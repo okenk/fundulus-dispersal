@@ -1,6 +1,6 @@
 require(TMB)
 set.seed(4309832)
-dyn.load(dynlib("DM_dyn_sig"))
+dyn.load(dynlib("DM_const_sig"))
 
 # Data structure
 dat <- read.data('Data/crk1.dat')
@@ -52,8 +52,10 @@ Parameters <- list(
   survival = survival,
   detectability = detectability,
   sig_disp = sig.disp[1],
-  overdispersion = .5
+  overdispersion = 1
 )
+
+disp.mods <- c('normal', 'exponential', 'cauchy')
 
 for(ii in 1:nreps) {
   # simulate data
@@ -66,7 +68,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               overdispersion = 2,
+                                               #overdispersion = 2,
                                                half.distn = TRUE, mean = 0, 
                                                sd = sig.disp[period])
       # exponential
@@ -75,7 +77,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               overdispersion = 2,
+                                               #overdispersion = 2,
                                                half.distn = FALSE,
                                                rate = 1/sig.disp[period])
       # half-cauchy
@@ -84,7 +86,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               overdispersion = 2,
+                                               #overdispersion = 2,
                                                half.distn = TRUE, location = 0, 
                                                scale = sig.disp[period])
       
@@ -101,8 +103,8 @@ for(ii in 1:nreps) {
                                             count.mat = count.mat.sim[sim.mod,,],
                                             distances = distances,
                                             times = times), 
-                              disp.model = c('normal', 'cauchy', 'exponential')[est.mod],
-                              count.model = 'neg.binom', dist.cutoff = 50) 
+                              disp.model = disp.mods[est.mod],
+                              count.model = 'poisson', dist.cutoff = 50) 
       
       model <- MakeADFun(data = input.ls$Data, parameters = Parameters, 
                          map = input.ls$Map, 
@@ -111,7 +113,7 @@ for(ii in 1:nreps) {
       Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr,
                    lower = c(0, 0, .0001, 0), #, rep(.001, nperiods)), 
                    upper = c(1, 100000, 100000, 100000))
-      fitted.mods[[sim.mod]][[est.mod]][[ii]] <- sdreport(model)
+      fitted.mods[[sim.mod]][[est.mod]][[ii]] <- model
     }
   }
 }
@@ -123,20 +125,34 @@ true.val.mat <- matrix(c(qnorm(.75, 0, sig.disp[1]),
                          qcauchy(.75, 0, sig.disp[1]), 
                          2*(pcauchy(50, 0, sig.disp[1]) - 0.5)),
                        nrow=3, byrow=TRUE,
-                       dimnames = list(model = c('norm', 'exp', 'cauchy'),
+                       dimnames = list(model = disp.mods,
                                        val = c('fifty_pct', 'pct_at_dist')))
-  
-res <- rmse <- list()
+
+res <- rmse <- mare <- temp <- list()
+aic <- array(0, dim=c(nmods, nmods, nreps), 
+             dimnames=list(sim.mod=disp.mods, est.mod=disp.mods, rep=1:nreps))
 for(sim.mod in 1:nmods) {
-  res[[sim.mod]] <- rmse[[sim.mod]] <- list()
+  res[[sim.mod]] <- rmse[[sim.mod]] <- mare[[sim.mod]] <- list()
   for(est.mod in 1:nmods) {
-    res[[sim.mod]][[est.mod]] <- sapply(fitted.mods[[sim.mod]][[est.mod]],
-                                        function(x)
-                                          c(x$par.fixed['survival'], x$value))
-    err <- res[[sim.mod]][[est.mod]] - c(survival, true.val.mat[sim.mod,])
+    sdreports <- sapply(fitted.mods[[sim.mod]][[est.mod]], sdreport)
+    res[[sim.mod]][[est.mod]] <- apply(sdreports, 2,
+             function(x) c(x['par.fixed']$par.fixed['survival'],
+                           x['value']$value)) %>% t()
+    err <- t(res[[sim.mod]][[est.mod]]) - c(survival, true.val.mat[sim.mod,])
+    rel.err <- err/c(survival, true.val.mat[sim.mod,])
     rmse[[sim.mod]][[est.mod]] <- apply(err, 1, function(x) sqrt(mean(x^2)))
+    mare[[sim.mod]][[est.mod]] <- apply(rel.err, 1, function(x) median(abs(x)))
+    aic[sim.mod, est.mod,] <- sapply(fitted.mods[[sim.mod]][[est.mod]],
+                                     function(x) x$fn())
   }
+  
+  temp[[sim.mod]] <- do.call(rbind, res[[sim.mod]]) %>% data.frame() %>% 
+    mutate(est.mod = rep(disp.mods, each=nreps))
 }
+
+res.df <- do.call(rbind, temp) %>% 
+  mutate(sim.mod = rep(disp.mods, each=nreps*nmods)) %>% rename(surv = survival)
+
 
 # When model is correctly specified, estimates are unbiased. 
 # Note: This is really a check to make sure we've coded everything correctly. 
