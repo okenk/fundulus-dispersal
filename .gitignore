@@ -1,6 +1,8 @@
 *.dat
 *.docx
 *.html
+*.dropbox
+*.csv
 
 # Compiled Object files
 *.slo
@@ -32,3 +34,4 @@
 *.out
 *.app
 .Rproj.user
+.Rhistory
