@@ -68,7 +68,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               #overdispersion = 2,
+                                               overdispersion = 2,
                                                half.distn = TRUE, mean = 0, 
                                                sd = sig.disp[period])
       # exponential
@@ -77,7 +77,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               #overdispersion = 2,
+                                               overdispersion = 2,
                                                half.distn = FALSE,
                                                rate = 1/sig.disp[period])
       # half-cauchy
@@ -86,7 +86,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               #overdispersion = 2,
+                                               overdispersion = 2,
                                                half.distn = TRUE, location = 0, 
                                                scale = sig.disp[period])
       
@@ -143,7 +143,7 @@ for(sim.mod in 1:nmods) {
     rmse[[sim.mod]][[est.mod]] <- apply(err, 1, function(x) sqrt(mean(x^2)))
     mare[[sim.mod]][[est.mod]] <- apply(rel.err, 1, function(x) median(abs(x)))
     aic[sim.mod, est.mod,] <- sapply(fitted.mods[[sim.mod]][[est.mod]],
-                                     function(x) x$fn())
+                                     function(x) 2*3 + 2*x$fn())
   }
   
   temp[[sim.mod]] <- do.call(rbind, res[[sim.mod]]) %>% data.frame() %>% 
@@ -152,7 +152,3 @@ for(sim.mod in 1:nmods) {
 
 res.df <- do.call(rbind, temp) %>% 
   mutate(sim.mod = rep(disp.mods, each=nreps*nmods)) %>% rename(surv = survival)
-
-
-# When model is correctly specified, estimates are unbiased. 
-# Note: This is really a check to make sure we've coded everything correctly. 

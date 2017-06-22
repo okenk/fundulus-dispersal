@@ -62,10 +62,10 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff) {
 
 # Compile and load model
 compile('DM_const_sig.cpp')
-# compile('DM_MM_sig.cpp')
+compile('DM_MM_sig.cpp')
 
 dyn.load(dynlib("DM_const_sig"))
-# dyn.load(dynlib("DM_MM_sig"))
+dyn.load(dynlib("DM_MM_sig"))
 
 Parameters <- list(
   survival = .9,
@@ -73,26 +73,28 @@ Parameters <- list(
   sig_disp = 20,
   overdispersion = 1
 )
-# Parameters <- list(
-#   survival = .9,
-#   detectability = .7,
-#   sig_disp_alpha = 300,
-#   sig_disp_beta = 20,
-#   overdispersion = 1
-# )
+
+Parameters <- list(
+  logit_survival = log(.9/.1),
+  log_detectability = log(.7),
+  log_sig_disp_mu = log(20),
+  log_sig_disp_sig = log(1),
+  log_sig_disp = log(rep(20, 9)),
+  overdispersion = 1
+)
 
 for(creek in 1:4) {
   filename <- paste('Data/crk', creek, '.dat', sep='')
   dat <- read.data(filename)
   to.fit <- make.inputs(dat, 'normal', 'neg.binom', 50)
-model <- MakeADFun(to.fit$Data, Parameters, DLL="DM_const_sig", map=to.fit$Map) 
+  to.fit$Map$log_sig_disp_mu <- to.fit$Map$log_sig_disp_sig <- factor(NA)
+  model <- MakeADFun(to.fit$Data, Parameters, DLL="DM_MM_sig", map=to.fit$Map)
+#                     random = 'log_sig_disp')
 model$env$beSilent()
 
 # Fit model
-Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr, 
-             lower = c(0, 0, 0, 0, 0), #, rep(.001, nperiods)), 
-             upper = c(1, 100, 10000000, 10000000, 10000000))
- 
+Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr) 
+
 Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr, 
              lower = c(0, 0, .0001, 0), #, rep(.001, nperiods)), 
              upper = c(1, 100, 100000, 100000))
@@ -100,8 +102,8 @@ Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr,
 # Examine fitted model
 summary(sdreport(model))
 
-report <- model$report()[[1]]
-colnames(report) <- c('obscount', 'predcount', 'times', 'distances', 'dist_factor')
+report <- model$report()[[1]] %>% data.frame()
+names(report) <- c('obscount', 'predcount', 'times', 'distances', 'dist_factor')
 plot(report[,1], report[,2], xlab = 'obscount', ylab='predcount')
 pearson.resid <- (report[,'obscount'] - report[,'predcount'])/sqrt(report[,'predcount'])
 plot(report[,'predcount'], pearson.resid)
