@@ -18,7 +18,7 @@ max1=.01
 max2=.4
 max3=.75
 
-pdf('Figs/poisson-sims.pdf', height=4.8, width=4.8)
+png('Figs/poisson-sims.png', height=4.8, width=4.8, units = 'in', res=200)
 par(mfrow=c(3,1), mar=rep(.5, 4), oma=c(5,5.5,4,1))
 for(mod in disp.mods) {
   plot(1,1, xlim=c(-max1, max1+max2+2*max3), ylim=c(.5, 3.5), 
@@ -51,8 +51,10 @@ axis(1, at=max1+max2+c(0, .2, .4), labels=c('', .2, .4), line=1)
 axis(1, at=c(0, .1), labels=c('', .1), line=1)
 mtext('Relative error', 1, 3, outer=TRUE)
 dev.off()
+shell(shQuote('"C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe" Figs/poisson-sims.pdf')) 
 
-
+system('"C:/Program Files (x86)/SumatraPDF/SumatraPDF.exe" Figs/poisson-sims.pdf')
+system2('open', args='Figs/poisson-sims.png') 
 
 # Simulation AIC ----------------------------------------------------------
 
@@ -72,9 +74,16 @@ paste(round(aic.mns, 1), '±', round(aic.sds, 1)) %>% c(winning.pct) %>%
   write.csv(file='Figs/AIC.csv')
 
 
-# Data obs vs expected ----------------------------------------------------
+# Data obs  ------------------------------------------------------------
+require(ggplot2)
 
-cols <- heat.colors(length(unique(report$times)))
-xx <- mutate(report, times=factor(times)) 
-with(xx, plot(x=jitter(distances), y=obscount, bg=cols[times], las=1,
-              pch = 21))
+ggplot(report) + facet_wrap(~creek) +
+  geom_vline(aes(xintercept=distances), col='gray80') +
+  geom_point(aes(x=jitter(distances), y=obscount, col=times), cex=1.5, alpha=.75) +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+        strip.background = element_blank(), legend.title.align = .5) +
+  xlab('Distance from release site (m)') +
+  ylab('Number of recaptures') + labs(color = 'Days since\nrelease') +
+  scale_color_gradient(high='#132B43', low='#56B1F7', trans='log',
+                       breaks=c(1, 5, 25, 200))

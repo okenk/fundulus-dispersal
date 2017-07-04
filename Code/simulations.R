@@ -1,6 +1,6 @@
 require(TMB)
 set.seed(4309832)
-dyn.load(dynlib("DM_const_sig"))
+dyn.load(dynlib("DM_MM_sig"))
 
 # Data structure
 dat <- read.data('Data/crk1.dat')
@@ -14,7 +14,7 @@ times <- dat$times
 
 # True values
 survival <- 0.98
-detectability <- 2.6
+detectability <- 2
 sig.disp <- rep(20, nperiods)
 
 
@@ -49,9 +49,11 @@ simulate.counts <- function(distance, times, disp.mod, ntraps, nrel, survival, d
 }
 
 Parameters <- list(
-  survival = survival,
-  detectability = detectability,
-  sig_disp = sig.disp[1],
+  logit_survival = log(.9/.1),
+  log_detectability = log(.7),
+  log_sig_disp_mu = log(20),
+  log_sig_disp_sig = log(1),
+  log_sig_disp_eps = rep(0, 9), #log(rep(20, 9)),
   overdispersion = 1
 )
 
@@ -104,15 +106,14 @@ for(ii in 1:nreps) {
                                             distances = distances,
                                             times = times), 
                               disp.model = disp.mods[est.mod],
-                              count.model = 'poisson', dist.cutoff = 50) 
+                              count.model = 'poisson', dist.cutoff = 50, 
+                              sigma.type = 'constant') 
       
       model <- MakeADFun(data = input.ls$Data, parameters = Parameters, 
                          map = input.ls$Map, 
-                         DLL="DM_const_sig")
+                         DLL="DM_MM_sig")
       model$env$beSilent()
-      Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr,
-                   lower = c(0, 0, .0001, 0), #, rep(.001, nperiods)), 
-                   upper = c(1, 100000, 100000, 100000))
+      Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr)
       fitted.mods[[sim.mod]][[est.mod]][[ii]] <- model
     }
   }
@@ -136,8 +137,9 @@ for(sim.mod in 1:nmods) {
   for(est.mod in 1:nmods) {
     sdreports <- sapply(fitted.mods[[sim.mod]][[est.mod]], sdreport)
     res[[sim.mod]][[est.mod]] <- apply(sdreports, 2,
-             function(x) c(x['par.fixed']$par.fixed['survival'],
-                           x['value']$value)) %>% t()
+             function(x) 
+               x['value']$value[c('survival', 'fifty_pct', 'pct_at_dist')]) %>% 
+      t()
     err <- t(res[[sim.mod]][[est.mod]]) - c(survival, true.val.mat[sim.mod,])
     rel.err <- err/c(survival, true.val.mat[sim.mod,])
     rmse[[sim.mod]][[est.mod]] <- apply(err, 1, function(x) sqrt(mean(x^2)))
