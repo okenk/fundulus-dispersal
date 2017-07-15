@@ -3,7 +3,7 @@ set.seed(4309832)
 dyn.load(dynlib("DM_MM_sig"))
 
 # Data structure
-dat <- read.data('Data/crk1.dat')
+dat <- read.data('Data/crk2.dat')
 ncreeks <- dat$ncreeks
 nrel <- dat$nrel
 nsites <- dat$nsites
@@ -20,7 +20,7 @@ sig.disp <- rep(20, nperiods)
 
 
 
-nreps <- 100
+nreps <- 500
 nmods <- 3
 count.mat.sim <- array(0, dim = c(nmods, nsites*nperiods, ntraps),
                        dimnames = list(mod=NULL, site.period = NULL, trap=NULL))
@@ -70,7 +70,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               overdispersion = 2,
+                                               # overdispersion = 2,
                                                half.distn = TRUE, mean = 0, 
                                                sd = sig.disp[period])
       # exponential
@@ -79,7 +79,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               overdispersion = 2,
+                                               # overdispersion = 2,
                                                half.distn = FALSE,
                                                rate = 1/sig.disp[period])
       # half-cauchy
@@ -88,7 +88,7 @@ for(ii in 1:nreps) {
                                                ntraps = ntraps, nrel = nrel,
                                                survival = survival, 
                                                detectability = detectability, 
-                                               overdispersion = 2,
+                                               # overdispersion = 2,
                                                half.distn = TRUE, location = 0, 
                                                scale = sig.disp[period])
       
@@ -130,7 +130,7 @@ true.val.mat <- matrix(c(qnorm(.75, 0, sig.disp[1]),
                                        val = c('fifty_pct', 'pct_at_dist')))
 
 res <- rmse <- mare <- temp <- list()
-aic <- array(0, dim=c(nmods, nmods, nreps), 
+aic.sim <- array(0, dim=c(nmods, nmods, nreps), 
              dimnames=list(sim.mod=disp.mods, est.mod=disp.mods, rep=1:nreps))
 for(sim.mod in 1:nmods) {
   res[[sim.mod]] <- rmse[[sim.mod]] <- mare[[sim.mod]] <- list()
@@ -144,8 +144,8 @@ for(sim.mod in 1:nmods) {
     rel.err <- err/c(survival, true.val.mat[sim.mod,])
     rmse[[sim.mod]][[est.mod]] <- apply(err, 1, function(x) sqrt(mean(x^2)))
     mare[[sim.mod]][[est.mod]] <- apply(rel.err, 1, function(x) median(abs(x)))
-    aic[sim.mod, est.mod,] <- sapply(fitted.mods[[sim.mod]][[est.mod]],
-                                     function(x) 2*3 + 2*x$fn())
+    aic.sim[sim.mod, est.mod,] <- sapply(fitted.mods[[sim.mod]][[est.mod]],
+                                         function(x) 2*3 + 2*x$fn())
   }
   
   temp[[sim.mod]] <- do.call(rbind, res[[sim.mod]]) %>% data.frame() %>% 

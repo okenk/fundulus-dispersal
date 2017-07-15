@@ -8,8 +8,8 @@ plot.sims <- function(rel.err.df, col, offset, sim.mod) {
   
   mapply(function(x,y) {
     segments(x[1:2] + offset, y, x[5:4] + offset, y, lwd=2,
-             col=c('grey60', 
-                   stringr::str_replace(gplots::col2hex(col), 'FF', '80')))
+             col=c('grey80', 
+                   stringr::str_replace(gplots::col2hex(col), 'FF', '99')))
     points(x[3] + offset, y, pch=16, col=col)}, 
     summary.stat$quants, 1:3)
 }
@@ -51,21 +51,19 @@ axis(1, at=max1+max2+c(0, .2, .4), labels=c('', .2, .4), line=1)
 axis(1, at=c(0, .1), labels=c('', .1), line=1)
 mtext('Relative error', 1, 3, outer=TRUE)
 dev.off()
-shell(shQuote('"C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe" Figs/poisson-sims.pdf')) 
 
-system('"C:/Program Files (x86)/SumatraPDF/SumatraPDF.exe" Figs/poisson-sims.pdf')
-system2('open', args='Figs/poisson-sims.png') 
+system('open Figs/poisson-sims.png')
 
 # Simulation AIC ----------------------------------------------------------
 
-aic.winner <- apply(aic, c(1,3), which.min) 
+aic.winner <- apply(aic.sim, c(1,3), which.min) 
 winning.pct <- numeric(3)
 for(ii in 1:3) {
   winning.pct[ii] <- sum(aic.winner[ii,] == ii)/nreps
 }
 
-aic.mns <- apply(aic, 1:2, mean) 
-aic.sds <- apply(aic, 1:2, sd)
+aic.mns <- apply(aic.sim, 1:2, mean) 
+aic.sds <- apply(aic.sim, 1:2, sd)
 
 paste(round(aic.mns, 1), '±', round(aic.sds, 1)) %>% c(winning.pct) %>% 
   matrix(nrow=3, dimnames=list(sim.mod=Hmisc::capitalize(disp.mods), 
@@ -77,6 +75,7 @@ paste(round(aic.mns, 1), '±', round(aic.sds, 1)) %>% c(winning.pct) %>%
 # Data obs  ------------------------------------------------------------
 require(ggplot2)
 
+png('Figs/obs-data.png', width=5, height=5, units='in', res=200)
 ggplot(report) + facet_wrap(~creek) +
   geom_vline(aes(xintercept=distances), col='gray80') +
   geom_point(aes(x=jitter(distances), y=obscount, col=times), cex=1.5, alpha=.75) +
@@ -87,3 +86,5 @@ ggplot(report) + facet_wrap(~creek) +
   ylab('Number of recaptures') + labs(color = 'Days since\nrelease') +
   scale_color_gradient(high='#132B43', low='#56B1F7', trans='log',
                        breaks=c(1, 5, 25, 200))
+dev.off()
+system('open Figs/obs-data.png')

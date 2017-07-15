@@ -6,6 +6,7 @@ Type objective_function<Type>::operator() ()
   DATA_INTEGER(disp_model); // 1 = half-normal, 2 = exponential, 3 = half-cauchy
   DATA_INTEGER(count_model); // 1 = poisson, 2 = negative binomial
   DATA_INTEGER(is_random);
+  DATA_INTEGER(is_asymptotic);
   // DATA_INTEGER(ncreeks);  // ncreeks is the number of release locations (creeks). Not currently used.
   DATA_INTEGER(nrel);  // nrel is the number of tagged fish released
   DATA_INTEGER(nsites); // the number of trapping sites at each location
@@ -41,7 +42,11 @@ Type objective_function<Type>::operator() ()
   int counter = 0;
   for (int i=0; i<nperiods; i++) {
     f -= dnorm(log_sig_disp_eps(i), Type(0.0), sig_disp_sig, true) * is_random;
-    sig_disp(i) = exp(log_sig_disp_mu + log_sig_disp_eps(i));
+    if(is_asymptotic == 0) {
+      sig_disp(i) = exp(log_sig_disp_mu + log_sig_disp_eps(i));
+    } else {
+      sig_disp(i) = exp(log_sig_disp_mu)*times(i)/(exp(log_sig_disp_sig)+times(i));
+    }
     for (int j=0; j<nsites; j++) {
       // pool traps
       obscount(counter) = 0;
