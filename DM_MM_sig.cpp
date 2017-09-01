@@ -22,11 +22,12 @@ Type objective_function<Type>::operator() ()
   PARAMETER(log_sig_disp_mu)
   PARAMETER(log_sig_disp_sig);
   PARAMETER_VECTOR(log_sig_disp_eps);
-  PARAMETER(overdispersion);
+  PARAMETER(log_overdispersion);
   
   Type survival = exp(logit_survival)/(1+exp(logit_survival));
   Type detectability = exp(log_detectability);
   Type sig_disp_sig = exp(log_sig_disp_sig);
+  Type overdispersion = exp(log_overdispersion);
   vector<Type> sig_disp(nperiods);
   // Type overdispersion = exp(log_overdispersion);
 
@@ -44,9 +45,15 @@ Type objective_function<Type>::operator() ()
     f -= dnorm(log_sig_disp_eps(i), Type(0.0), sig_disp_sig, true) * is_random;
     if(is_asymptotic == 0) {
       sig_disp(i) = exp(log_sig_disp_mu + log_sig_disp_eps(i));
-    } else {
-      sig_disp(i) = exp(log_sig_disp_mu)*times(i)/(exp(log_sig_disp_sig)+times(i));
     }
+    if(is_asymptotic == 1) {
+      sig_disp(i) = exp(log_sig_disp_mu)*times(i)/(exp(log_sig_disp_sig)+times(i));
+    } 
+    if(is_asymptotic == 2) {
+      sig_disp(i) = exp(log_sig_disp_mu)*(1-exp(-exp(log_sig_disp_sig)*times(i)));
+    } 
+    // else escape function???
+    
     for (int j=0; j<nsites; j++) {
       // pool traps
       obscount(counter) = 0;
@@ -95,8 +102,9 @@ Type objective_function<Type>::operator() ()
       // }
     }   
   }
-  
-  ADREPORT(survival);
+  Type t_max = 4.22/(-log(survival)*365);
+    
+  ADREPORT(t_max);
   ADREPORT(detectability);
   ADREPORT(exp(log_sig_disp_mu));
   ADREPORT(sig_disp);

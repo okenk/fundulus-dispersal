@@ -40,14 +40,14 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
   if(is.null(count.model.num))
     stop('Please choose "poisson" or "neg.binom" for count model')
   
-  if(!(sigma.type %in% c('random', 'fixed', 'asymptote', 'constant')))
-    stop('Please choose "random", "fixed", "asymptote" or "constant" for sigma type')
+  if(!(sigma.type %in% c('random', 'fixed', 'asympBH', 'asympVB', 'constant')))
+    stop('Please choose "random", "fixed", "asympBH", "asympVB", or "constant" for sigma type')
   
   Data <- with(dat.ls, 
                list(disp_model = disp.model.num,
                     count_model = count.model.num,
                     is_random = as.numeric(sigma.type == 'random'),
-                    is_asymptotic = as.numeric(sigma.type=='asymptote'),
+                    is_asymptotic = switch(sigma.type, asympBH=1, asympVB=2, 0),
                     nrel = nrel,
                     nsites = nsites,
                     nperiods = nperiods,
@@ -61,7 +61,7 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
   Random <- NULL
   
   if(count.model.num == 1) {
-    Map$overdispersion <- factor(NA)
+    Map$log_overdispersion <- factor(NA)
   }
   
   if(sigma.type == 'random') {
@@ -75,7 +75,7 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
       Map$log_sig_disp_eps <- rep(factor(NA), dat.ls$nperiods)
       Map$log_sig_disp_sig <- factor(NA)
     }
-    if(sigma.type == 'asymptote') {
+    if(sigma.type == 'asympBH' | sigma.type == 'asympVB') {
       Map$log_sig_disp_eps <- rep(factor(NA), dat.ls$nperiods) 
     }
   }
