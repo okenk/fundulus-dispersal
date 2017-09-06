@@ -62,6 +62,29 @@ system('open Figs/poisson-sims.png')
 
 
 # Dispersal structures ----------------------------------------------------
+t.max.true <- t.max
+
+png('Figs/survival-results.png', height=8, width=8, units = 'in', res=200)
+surv.res.df %>%
+  # filter(est.mod=='normal', sim.mod=='normal') %>%
+  mutate(rel.err = (t.max-t.max.true)/t.max.true) %>%
+  group_by(sim.mod, est.mod, disp.str) %>%
+  summarize(min=quantile(rel.err, .05), low=quantile(rel.err, .25), mid=median(rel.err),
+            high=quantile(rel.err, .75), max=quantile(rel.err, .95)) %>%
+  ggplot() +
+  geom_point(aes(x=mid, y=disp.str), cex=2) +
+  geom_segment(aes(x=min, xend=max, y=disp.str, yend=disp.str)) +
+  geom_segment(aes(x=low, xend=high, y=disp.str, yend=disp.str), lwd=1.5) +
+  geom_vline(xintercept=0, lty=2) +
+  facet_grid(est.mod ~ sim.mod, scales = 'free_y', space='free_y', labeller = label_both) +
+  ggsidekick::theme_sleek() +
+  xlab('Relative error in T-max') + ylab('Dispersal structure')
+dev.off()
+system('open Figs/survival-results.png')
+
+
+require(ggplot2)
+
 par(mfrow=c(n_distinct(surv.res.df$sim.mod),1), mar=rep(.5, 4), oma=c(5,6,4,1))
 plot.max <- n_distinct(surv.res.df$est.mod) + 0.5
 for(mod in disp.mods) {

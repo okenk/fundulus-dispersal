@@ -17,7 +17,7 @@ times <- dat$times
 survival <- 0.99
 detectability <- 2
 sig.disp <- 32.5*times/(times+6.35)
-#rexp(nperiods, .2) %>% sort(decreasing = TRUE) %>% cumsum() %>% sort() #rep(20, nperiods)
+#rexp(nperiods, .2) %>% sort(decreasing = TRUE) %>% cumsum() %>% sort() #rep(20, nperiods) #
 t.max <- 4.22/(-log(survival)*365)
 overdispersion <- 2
 
@@ -196,22 +196,27 @@ for(sim.mod in 1:nmods) {
   for(est.mod in 1:nmods) {
     for(struc in 1:length(disp.structures)) {
       sdreports <- sapply(fitted.mods[[sim.mod]][[est.mod]][[struc]], sdreport)
-      temp.mat[,struc] <- apply(sdreports, 2,
-                                                       function(x) x['value']$value['t_max'])
+      temp.mat[,struc] <- apply(sdreports, 2, function(x) x['value']$value['t_max'])
     }
-    surv.res[[sim.mod]][[est.mod]] <- data.frame(temp.mat) %>%
-      mutate(est.mod=disp.mods[est.mod], sim.mod=disp.mods[sim.mod])
+    surv.res[[sim.mod]][[est.mod]] <- data.frame(t.max=as.vector(temp.mat),
+                                                 disp.str=rep(disp.structures, each=nreps),
+                                                 est.mod=disp.mods[est.mod],
+                                                 sim.mod=disp.mods[sim.mod],
+                                                 stringsAsFactors = FALSE) 
   }
-  temp.ls[[sim.mod]] <- do.call(rbind, surv.res[[sim.mod]])
-  # surv.res[[sim.mod]][[nmods+1]] <- sapply(fitted.mods[[sim.mod]][[nmods+1]],
-  #                               function(x) tryCatch(-4.22/(coef(x)['times']*365),
-  #                                                    error=function(e) return(NA))) 
+  surv.res[[sim.mod]][[nmods+1]] <- sapply(fitted.mods[[sim.mod]][[nmods+1]],
+                                function(x) tryCatch(-4.22/(coef(x)['times']*365),
+                                                     error=function(e) return(NA))) %>%
+    data.frame(t.max=., disp.str=NA, est.mod='no dispersal', sim.mod=disp.mods[sim.mod], 
+               stringsAsFactors = FALSE)
                                   # S = exp(nb glm estimate)
                                   # M = -log(S)
                                   # convert daily to annual rate
                                   # convert to max age
                                   # matrix(ncol=3, byrow=TRUE)
-  # aic.sim[sim.mod, 4,] <- sapply(fitted.mods[[sim.mod]][[4]], function(mod)
+  temp.ls[[sim.mod]] <- do.call(rbind, surv.res[[sim.mod]][1:nmods]) %>%
+    rbind(surv.res[[sim.mod]][[nmods+1]])
+      # aic.sim[sim.mod, 4,] <- sapply(fitted.mods[[sim.mod]][[4]], function(mod)
   #   if(length(mod)>1) return(AIC(mod)) else return(NA))
   # 
   # temp[[sim.mod]] <- do.call(rbind, res[[sim.mod]]) %>% data.frame() %>% 
