@@ -85,10 +85,11 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
 
 # Compile and load model
 #compile('DM_const_sig.cpp')
-compile('DM_MM_sig.cpp')
+dyn.unload(dynlib("Code/DM_MM_sig"))
+compile('Code/DM_MM_sig.cpp')
 
 #dyn.load(dynlib("DM_const_sig"))
-dyn.load(dynlib("DM_MM_sig"))
+dyn.load(dynlib("Code/DM_MM_sig"))
 
 Parameters <- list(
   survival = .9,

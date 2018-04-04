@@ -28,6 +28,7 @@ Type objective_function<Type>::operator() ()
   Type detectability = exp(log_detectability);
   Type sig_disp_sig = exp(log_sig_disp_sig);
   Type overdispersion = exp(log_overdispersion);
+  Type sig_disp_mu = exp(log_sig_disp_mu);
   vector<Type> sig_disp(nperiods);
   // Type overdispersion = exp(log_overdispersion);
 
@@ -35,8 +36,8 @@ Type objective_function<Type>::operator() ()
   vector<Type> obscount(nsites * nperiods);// * ntraps);
   vector<Type> dist_factor(nsites * nperiods);// * ntraps);
   matrix<Type> outmat(nsites * nperiods, 5);// * ntraps, 5);
-  vector<Type> fifty_pct(nperiods);
-  vector<Type> pct_at_dist(nperiods);
+  Type fifty_pct;
+  Type pct_at_dist;
     
   Type f = 0; // objective function value
   
@@ -66,20 +67,14 @@ Type objective_function<Type>::operator() ()
         // dist_factor(counter) = Type(2.0) * (pnorm(distances(j)+site_width, Type(0.0), sig_disp) - 
         //     pnorm(distances(j)-site_width, Type(0.0), sig_disp));
         dist_factor(counter) = Type(2.0) * dnorm(distances(j), Type(0.0), sig_disp(i));
-        fifty_pct(i) = qnorm(Type(0.75), Type(0.0), sig_disp(i)); // want middle of positive half of distn
-        pct_at_dist(i) = (pnorm(dist_cutoff, Type(0.0), sig_disp(i)) - Type(0.5)) * Type(2.0);
       } else if(disp_model == 2) { // 2 = exponential
         // dist_factor(counter) = (pexp(distances(j)+site_width, 1/sig_disp) - //F(d+site_width)
         //   pexp(distances(j)-site_width, 1/sig_disp)); //F(d-site_width)
         dist_factor(counter) = dexp(distances(j), pow(sig_disp(i), -1));
-        fifty_pct(i) = qexp(Type(0.5), pow(sig_disp(i), -1));
-        pct_at_dist(i) = pexp(dist_cutoff, pow(sig_disp(i), -1));
       } else if(disp_model == 3) { // 3 = half-cauchy
         // dist_factor(counter) = (Type(2.0)/PI) * atan((distances(j)+site_width)/sig_disp) - //F(d+site_width)
         //   (Type(2.0)/PI) * atan((distances(j)-site_width)/sig_disp); //F(d-site_width)
         dist_factor(counter) = Type(2.0) / (PI*sig_disp(i) * (1 + pow(distances(j)/sig_disp(i),2)));
-        fifty_pct(i) = sig_disp(i)*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
-        pct_at_dist(i) = pow(PI, -1) * atan(dist_cutoff/sig_disp(i)) * Type(2.0);
       }
       
       // predicted counts, NLL, outmatrix, etc.
@@ -102,14 +97,29 @@ Type objective_function<Type>::operator() ()
       // }
     }   
   }
-  Type t_max = 4.22/(-log(survival)*365);
-    
+  Type annual_mort = -log(survival)*365;
+  Type t_max = 4.22/annual_mort;
+  
+  if(disp_model == 1) { // 1 = half-normal
+    fifty_pct = qnorm(Type(0.75), Type(0.0), sig_disp_mu); // want middle of positive half of distn
+    pct_at_dist = (pnorm(dist_cutoff, Type(0.0), sig_disp_mu) - Type(0.5)) * Type(2.0);
+  } else if(disp_model == 2) { // 2 = exponential
+    fifty_pct = qexp(Type(0.5), pow(sig_disp_mu, -1));
+    pct_at_dist = pexp(dist_cutoff, pow(sig_disp_mu, -1));
+  } else if(disp_model == 3) { // 3 = half-cauchy
+    fifty_pct = sig_disp_mu*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
+    pct_at_dist = pow(PI, -1) * atan(dist_cutoff/sig_disp_mu) * Type(2.0);
+  }
+  
+  ADREPORT(survival);
+  ADREPORT(annual_mort);
   ADREPORT(t_max);
-  ADREPORT(detectability);
-  ADREPORT(exp(log_sig_disp_mu));
-  ADREPORT(sig_disp);
   ADREPORT(fifty_pct);
   ADREPORT(pct_at_dist);
+  ADREPORT(detectability);
+  ADREPORT(sig_disp_mu);
+  ADREPORT(sig_disp);
+  
   REPORT(outmat);
   return f;
 }
