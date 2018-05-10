@@ -30,9 +30,10 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
   disp.model.num <- switch(disp.model,
                            normal = 1,
                            exponential = 2,
-                           cauchy = 3)
+                           cauchy = 3,
+                           no.dispersal = 4)
   if(is.null(disp.model.num)) 
-    stop('Please choose "normal", "exponential", or "cauchy" for dispersal model')
+    stop('Please choose "normal", "exponential", "cauchy", or "no.dispersal" for dispersal model')
   
   count.model.num <- switch(count.model,
                             poisson = 1,
@@ -40,8 +41,8 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
   if(is.null(count.model.num))
     stop('Please choose "poisson" or "neg.binom" for count model')
   
-  if(!(sigma.type %in% c('random', 'fixed', 'asympBH', 'asympVB', 'constant')))
-    stop('Please choose "random", "fixed", "asympBH", "asympVB", or "constant" for sigma type')
+  if(!(sigma.type %in% c('random', 'fixed', 'asympBH', 'asympVB', 'constant', 'none')))
+    stop('Please choose "random", "fixed", "asympBH", "asympVB", "none", or "constant" for sigma type')
   
   Data <- with(dat.ls, 
                list(disp_model = disp.model.num,
@@ -64,6 +65,11 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
     Map$log_overdispersion <- factor(NA)
   }
   
+  if(disp.model=='no.dispersal') {
+    Map$log_sig_disp_mu <- factor(NA) 
+    Map$log_sig_disp_sig <- factor(NA)
+    Map$log_sig_disp_eps <- rep(factor(NA), dat.ls$nperiods)
+  }
   if(sigma.type == 'random') {
     Random <- 'log_sig_disp_eps'
   } else {
@@ -79,6 +85,7 @@ make.inputs <- function(dat.ls, disp.model, count.model, dist.cutoff, sigma.type
       Map$log_sig_disp_eps <- rep(factor(NA), dat.ls$nperiods) 
     }
   }
+  
   
   return(list(Data = Data, Map = Map, Random = Random))
 }

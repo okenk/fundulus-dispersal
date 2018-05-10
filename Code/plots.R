@@ -1,4 +1,7 @@
 require(ggplot2)
+require(gtable)
+require(grid)
+require(dplyr)
 load('Code/sim-results.RData')
 
 # Simulation estimates ----------------------------------------------------
@@ -64,67 +67,128 @@ load('Code/sim-results.RData')
 
 
 # Survival estimates ----------------------------------------------------
-t.max.true <- t.max
+annual.mort.true <- annual.mort
 
-                                                                       
-png('Figs/survival-results.png', height=8, width=8, units = 'in', res=200)
-sim.res.df %>%
-  mutate(rel.err = (t.max-t.max.true)/t.max.true) %>%
+sim.res.df$est.mod[sim.res.df$est.mod=='no.dispersal'] <- ''                                                                       
+sim.res.df$disp.str[sim.res.df$disp.str=='asympBH'] <- 'asympMM'                                                                       
+
+this.plot <- sim.res.df %>%
+  mutate(rel.err = (annual.mort-annual.mort.true)/annual.mort.true) %>%
   group_by(sim.mod, est.mod, disp.str) %>%
-  summarize(min=quantile(rel.err, .05), low=quantile(rel.err, .25), mid=median(rel.err),
-            high=quantile(rel.err, .75), 
-            max=ifelse(quantile(rel.err, .95)<.5, quantile(rel.err, .95), .5)) %>%
+  summarize(min=quantile(rel.err, .05, na.rm=T), low=quantile(rel.err, .25, na.rm=T), 
+            mid=median(rel.err, na.rm=T), high=quantile(rel.err, .75, na.rm=T), 
+            # max=ifelse(quantile(rel.err, .95)<.5, quantile(rel.err, .95), .5)) %>%
+            max=quantile(rel.err, .95, na.rm=T)) %>%
   ggplot() +
   geom_point(aes(x=mid, y=disp.str), cex=2) +
   geom_segment(aes(x=min, xend=max, y=disp.str, yend=disp.str)) +
   geom_segment(aes(x=low, xend=high, y=disp.str, yend=disp.str), lwd=1.5) +
   geom_vline(xintercept=0, lty=2) +
-  facet_grid(est.mod ~ sim.mod, scales = 'free_y', space='free_y', labeller = label_both) +
+  facet_grid(est.mod ~ sim.mod, scales = 'free_y', space='free_y') +
   ggsidekick::theme_sleek() +
-  xlab(expression(paste('Relative error in ', T[max]))) + ylab('Dispersal structure')
+  theme(strip.text.y = element_text(color = 'grey30'), 
+        strip.text.x = element_text(color = 'grey30')) +
+  xlab('Relative error in M') + ylab('Dispersal structure')
+
+z <- ggplotGrob(this.plot)
+posR <- subset(z$layout, grepl("strip-r", name), select = t:r)
+posT <- subset(z$layout, grepl("strip-t", name), select = t:r)
+
+width <- z$widths[max(posR$r)]    # width of current right strips
+height <- z$heights[min(posT$t)]  # height of current top strips
+
+z <- gtable_add_cols(z, width, max(posR$r))  %>% 
+  gtable_add_rows(height, min(posT$t)-1)
+
+stripR <- gTree(name = "Strip_right", children = gList(
+  rectGrob(gp = gpar(col = NA, fill = NA)),
+  textGrob('Estimation dispersal distribution', rot = -90, gp = gpar(fontsize = 11, col = "grey30"))))
+stripT <- gTree(name = "Strip_top", children = gList(
+  rectGrob(gp = gpar(col = NA, fill = NA)),
+  textGrob('Simulation dispersal distribution', gp = gpar(fontsize = 11, col = "grey30"))))
+
+z <- gtable_add_grob(z, stripR, t = min(posR$t)+1, l = max(posR$r) + 1, b = max(posR$b)+1, name = "strip-right") %>%
+  gtable_add_grob(stripT, t = min(posT$t), l = min(posT$l), r = max(posT$r), name = "strip-top")
+
+png('Figs/survival-results.png', height=8, width=8, units = 'in', res=200)
+grid.newpage()
+grid.draw(z)
 dev.off()
 system('open Figs/survival-results.png')
 
 sim.res.df %>%
-  mutate(rel.err = (t.max-t.max.true)/t.max.true) %>%
+  mutate(rel.err = (annual.mort-annual.mort.true)/annual.mort.true) %>%
   group_by(sim.mod, est.mod, disp.str) %>%
-  summarize(min=quantile(rel.err, .05), low=quantile(rel.err, .25), mid=median(rel.err),
-            high=quantile(rel.err, .75), 
-            max=ifelse(quantile(rel.err, .95)<.5, quantile(rel.err, .95), .5)) %>%
-  filter(est.mod != 'no dispersal', disp.str != 'constant') %>%
-  arrange(sim.mod, desc(abs(mid))) %>%
-  group_by(disp.str) %>% summarize(mean(mid))
-
-# This seems to be sensitive to the choice of tmax function. Propose basing bias 
-# conclusions on estimates of M.
-
+  summarize(min=quantile(rel.err, .05, na.rm=T), low=quantile(rel.err, .25, na.rm=T), 
+            mid=median(rel.err, na.rm=T), high=quantile(rel.err, .75, na.rm=T), 
+            max=quantile(rel.err, .95, na.rm=T)) %>%
+  # filter(est.mod != 'no dispersal', disp.str != 'constant') %>%
+  arrange(sim.mod, desc(abs(mid))) %>% 
+  filter(est.mod != '', disp.str != 'no dispersal') %>% 
+  arrange(desc(abs(mid)))
+  group_by(disp.str) %>% summarize(mean(mid, na.rm=T))
 
 # dispersal estimates ----------------------------------------------------
 sim.res.df$fifty.pct.true <- sapply(sim.res.df$sim.mod, function(x)
   switch(x,
-         normal = qnorm(.75, 0, 32.5),
-         exponential = qexp(.5, 1/32.5),
-         cauchy = qcauchy(.75, 32.5)))
+         normal = qnorm(.75, 0, sig.disp[4]),
+         exponential = qexp(.5, 1/sig.disp[4]),
+         cauchy = qcauchy(.75, sig.disp[4])))
 
-png('Figs/dispersal-results.png', height=8, width=8, units = 'in', res=200)
-sim.res.df %>%
-  filter(disp.str != 'fixed', est.mod != 'no dispersal') %>%
+this.plot <- sim.res.df %>%
+  filter(est.mod != 'no dispersal', est.mod != 'no.dispersal', est.mod != '') %>%
   mutate(rel.err = (fifty.pct - fifty.pct.true)/fifty.pct.true) %>%
   group_by(sim.mod, est.mod, disp.str) %>%
-  summarize(min=quantile(rel.err, .05), low=quantile(rel.err, .25), mid=median(rel.err),
-            high=quantile(rel.err, .75), 
-            max=quantile(rel.err, .95)) %>% #ifelse(quantile(rel.err, .95)<.5, quantile(rel.err, .95), .5)) %>%
+  summarize(min=quantile(rel.err, .05, na.rm=T), low=quantile(rel.err, .25, na.rm=T), 
+            mid=median(rel.err, na.rm=T), high=quantile(rel.err, .75, na.rm=T), 
+            max=quantile(rel.err, .95, na.rm=T)) %>% #ifelse(quantile(rel.err, .95)<.5, quantile(rel.err, .95), .5)) %>%
   ggplot() +
   geom_point(aes(x=mid, y=disp.str), cex=2) +
   geom_segment(aes(x=min, xend=max, y=disp.str, yend=disp.str)) +
   geom_segment(aes(x=low, xend=high, y=disp.str, yend=disp.str), lwd=1.5) +
   geom_vline(xintercept=0, lty=2) +
-  facet_grid(est.mod ~ sim.mod, scales = 'free_y', space='free_y', labeller = label_both) +
+  facet_grid(est.mod ~ sim.mod, scales = 'free_y', space='free_y') +
   ggsidekick::theme_sleek() +
-  xlab('Relative error in distance at 50% dispersal, relative to asymptote') +
+  xlab('Relative error in distance at 50% dispersal on day 20') +
   ylab('Dispersal structure')
+
+z <- ggplotGrob(this.plot)
+posR <- subset(z$layout, grepl("strip-r", name), select = t:r)
+posT <- subset(z$layout, grepl("strip-t", name), select = t:r)
+
+width <- z$widths[max(posR$r)]    # width of current right strips
+height <- z$heights[min(posT$t)]  # height of current top strips
+
+z <- gtable_add_cols(z, width, max(posR$r))  %>% 
+  gtable_add_rows(height, min(posT$t)-1)
+
+stripR <- gTree(name = "Strip_right", children = gList(
+  rectGrob(gp = gpar(col = NA, fill = NA)),
+  textGrob('Estimation dispersal distribution', rot = -90, gp = gpar(fontsize = 11, col = "grey30"))))
+stripT <- gTree(name = "Strip_top", children = gList(
+  rectGrob(gp = gpar(col = NA, fill = NA)),
+  textGrob('Simulation dispersal distribution', gp = gpar(fontsize = 11, col = "grey30"))))
+
+z <- gtable_add_grob(z, stripR, t = min(posR$t)+1, l = max(posR$r) + 1, b = max(posR$b)+1, name = "strip-right") %>%
+  gtable_add_grob(stripT, t = min(posT$t), l = min(posT$l), r = max(posT$r), name = "strip-top")
+
+png('Figs/dispersal-results.png', height=8, width=8, units = 'in', res=200)
+grid.newpage()
+grid.draw(z)
 dev.off()
 system('open Figs/dispersal-results.png')
+
+sim.res.df %>%
+  mutate(rel.err = (fifty.pct-fifty.pct.true)/fifty.pct.true) %>%
+  group_by(sim.mod, est.mod, disp.str) %>%
+  summarize(min=quantile(rel.err, .05, na.rm=T), low=quantile(rel.err, .25, na.rm=T), 
+            mid=median(rel.err, na.rm=T), high=quantile(rel.err, .75, na.rm=T), 
+            max=quantile(rel.err, .95, na.rm=T)) %>%
+  # filter(est.mod != 'no dispersal', disp.str != 'constant') %>%
+  arrange(sim.mod, desc(abs(mid))) %>% 
+  # filter(est.mod != '', disp.str != 'no dispersal') %>% 
+  # arrange(desc(abs(mid)))
+group_by(disp.str) %>% summarize(mean(mid, na.rm=T))
 
 
 # Simulation AIC ----------------------------------------------------------
@@ -137,9 +201,10 @@ for(ii in 1:3) {
 
 aic.mns <- apply(aic.sim[,1:3,], 1:2, mean, na.rm=TRUE) 
 aic.sds <- apply(aic.sim[,1:3,], 1:2, sd)
+disp.mods <- rownames(aic.mns)
 
 paste(round(aic.mns, 1), '±', round(aic.sds, 1)) %>% c(paste0(winning.pct*100, '%')) %>% 
-  matrix(nrow=3, dimnames=list(sim.mod=Hmisc::capitalize(disp.mods), 
+  matrix(nrow=3, dimnames=list('Simulation model'=Hmisc::capitalize(disp.mods), 
                                c(Hmisc::capitalize(disp.mods), 
                                  '% correct model chosen'))) %>%
   write.csv(file='Figs/AIC.csv')
@@ -149,67 +214,91 @@ paste(round(aic.mns, 1), '±', round(aic.sds, 1)) %>% c(paste0(winning.pct*100, 
 
 m.ind <- which(names(sdreport(emp.mod.fits[[1]][[1]][[1]])$value)=='annual_mort')
 t.max.ind <- which(names(sdreport(emp.mod.fits[[1]][[1]][[1]])$value)=='t_max')
-fifty.pct.ind <- which(names(sdreport(emp.mod.fits[[1]][[1]][[1]])$value)=='fifty_pct')
+fifty.pct.ind <- which(names(sdreport(emp.mod.fits[[1]][[1]][[1]])$value)=='fifty_pct_global')
+fifty.pct.3wk.ind <- which(names(sdreport(emp.mod.fits[[1]][[1]][[1]])$value)=='fifty_pct')
 # Those indices should be unaffected by sampling structure for creek or 
 # dispersal structure for model
 
-table.width <- 5
-print.mat <- matrix('', nrow=22, ncol=2 * table.width + 1)
+table.width <- 4
+print.mat <- matrix('', nrow=22, ncol=3 * table.width + 2)
 print.mat[1,1] <- 'Random effect dispersal rate'
 print.mat[1,table.width+2] <- 'Asymptotic dispersal rate'
+print.mat[1,2*(table.width) + 3] <- 'Fixed effect dispersal rate'
 row.marker <- 2
+
+disp.arr <- mort.arr <- disp.3wk.arr <- array(NA, dim=c(3, 4, 3), 
+                                              dimnames = list(disp.mod=c('normal', 'exponential', 'cauchy'),
+                                                              creek=1:4,
+                                                              mod.struc= c('fixed', 'random', 'asympBH')))
+
 for(disp.mod in c('normal', 'exponential', 'cauchy')) {
   row.marker <- row.marker + 1
-  print.mat[row.marker, c(1,table.width+2)] <- Hmisc::capitalize(disp.mod)
+  print.mat[row.marker, c(1,table.width+2, 2*table.width+3)] <- Hmisc::capitalize(disp.mod)
   
   row.marker <- row.marker + 1
-  print.mat[row.marker, c(1,table.width+2)] <- 'Location'
-  print.mat[row.marker, c(2,table.width+3)] <- 'AIC'
-  print.mat[row.marker, c(3,table.width+4)] <- 'M (1/yr)'
-  print.mat[row.marker, c(4,table.width+5)] <- 'tmax (yrs)'
+  print.mat[row.marker, c(1,table.width+2,2*table.width+3)] <- 'Location'
+  print.mat[row.marker, c(2,table.width+3,2*table.width+4)] <- 'AIC'
+  print.mat[row.marker, c(3,table.width+4,2*table.width+5)] <- 'M (1/yr)'
+  print.mat[row.marker, c(4,table.width+5,2*table.width+6)] <- 'tmax (yrs)'
   print.mat[row.marker, c(5)] <- 'Mean dist @ 50% disp (m)'
   print.mat[row.marker, c(table.width+6)] <- 'Asymptotic dist @ 50% disp (m)'
   
   for(creek in 1:4) {
     row.marker <- row.marker + 1
-    print.mat[row.marker, c(1, table.width+2)] <- paste('Creek', creek)
-    print.mat[row.marker, c(2, table.width+3)] <- aic.emp[creek, disp.mod, 
+    print.mat[row.marker, c(1, table.width+2, 2*table.width+3)] <- paste('Creek', creek)
+    print.mat[row.marker, c(2, table.width+3, 2*table.width+4)] <- aic.emp[creek, disp.mod, 
                                                           c('random effect', 
-                                                            'asymptote')] %>%
+                                                            'asymptote', 'fixed effect')] %>%
       round(1)
-    
-    print.mat[row.marker, c(3, table.width+4)] <- paste0(
-      round(sapply(emp.mod.fits[[creek]][[disp.mod]][3:4], 
-                   function(x) sdreport(x)$value[m.ind]), 2),
-      '±',
-      round(sapply(emp.mod.fits[[creek]][[disp.mod]][3:4], 
-                   function(x) sdreport(x)$sd[m.ind]), 2))
-    
-    print.mat[row.marker, c(4, table.width+5)] <- paste0(
-      round(sapply(emp.mod.fits[[creek]][[disp.mod]][3:4], 
-                   function(x) sdreport(x)$value[t.max.ind]), 2),
-      '±',
-      round(sapply(emp.mod.fits[[creek]][[disp.mod]][3:4], 
-                   function(x) sdreport(x)$sd[t.max.ind]), 2))
-    
-    print.mat[row.marker, c(5, table.width+6)] <- paste0(
-      round(sapply(emp.mod.fits[[creek]][[disp.mod]][3:4], 
-                   function(x) sdreport(x)$value[fifty.pct.ind]), 1),
-      '±',
-      round(sapply(emp.mod.fits[[creek]][[disp.mod]][3:4], 
-                   function(x) sdreport(x)$sd[fifty.pct.ind]), 1))
+    for(mod.struc in 2:4) {
+      if(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$pdHess) {
+        
+        print.mat[row.marker, c(NA,2*table.width+5, 3, table.width+4)[mod.struc]] <- paste0(
+          round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[m.ind], 2),
+          '±',
+          round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[m.ind], 2))
+        mort.arr[disp.mod, creek, mod.struc-1] <- sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[m.ind]
+        
+        print.mat[row.marker, c(NA,2*table.width+6, 4, table.width+5)[mod.struc]] <- paste0(
+          round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[t.max.ind], 2),
+          '±',
+          round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[t.max.ind], 2))
+        
+        if(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[fifty.pct.ind] < 100) {
+          print.mat[row.marker, c(NA,NA, 5, table.width+6)[mod.struc]] <- paste0(
+            round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[fifty.pct.ind], 2),
+            '±',
+            round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[fifty.pct.ind], 2))
+        } else {
+          print.mat[row.marker, c(NA,NA, 5, table.width+6)[mod.struc]] <- paste(
+            formatC(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[fifty.pct.ind],
+                    format='E', digits=2),
+            '±',
+            formatC(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[fifty.pct.ind], 
+                    format='E', digits=2))
+          
+        }
+        disp.arr[disp.mod, creek, mod.struc-1] <- sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[fifty.pct.ind]
+        disp.3wk.arr[disp.mod, creek, mod.struc-1] <- sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[fifty.pct.3wk.ind]
+      }
+    }
   }
   row.marker <- row.marker+1
 }
 
 # Remove results for models that did not converge
-temp <- as.vector(which(is.na(print.mat), arr.ind=TRUE)) + matrix(c(rep(0, table.width-2), 1:(table.width-2)),
-                                                                  nrow=2, byrow=TRUE)
-print.mat[temp[1,], temp[2,]] <- ''
-print.mat[is.na(print.mat)] <- 'Did not converge'
+temp <- which(is.na(print.mat))#, arr.ind=TRUE)
+print.mat[temp] <- 'Did not converge'
+# print.mat[which(print.mat=='Did not converge')+1] <- ''
 
 write.table(print.mat, file='Figs/model-fits.csv', row.names = FALSE, col.names = FALSE,
             sep=',')
+
+mean(disp.arr[,1:2, 2:3], na.rm=T)
+mean(disp.3wk.arr[,1:2, 2:3], na.rm=T)
+mean(mort.arr[,1:2, 2:3], na.rm=T)
+
+
 
 
 # Plot data and fits from best model --------------------------------------

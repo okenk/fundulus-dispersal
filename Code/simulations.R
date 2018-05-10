@@ -26,7 +26,7 @@ overdispersion <- 2
 disp.mods <- c('normal', 'exponential', 'cauchy')
 disp.structures <- c('constant', 'fixed', 'random', 'asympBH', 'asympVB')
 
-nreps <- 100
+nreps <- 500
 nmods <- 3
 count.mat.sim <- array(0, dim = c(nmods, nsites*nperiods, ntraps),
                        dimnames = list(mod=NULL, site.period = NULL, trap=NULL))
@@ -142,10 +142,27 @@ for(ii in 1:nreps) {
     }
       recaps <- apply(count.mat.sim[sim.mod,,], 1, sum) %>%
         tapply(rep(1:nperiods, each=nsites), sum) %>% as.vector()
-      fitted.mods[[sim.mod]][[nmods+1]][[ii]] <- tryCatch(glm.nb(recaps~times, # family=poisson,
-                                                              control = glm.control(maxit = 1000)),
-                                                          error=function(e) return(NA),
-                                                          warning=function(w) return(NA))
+      
+      # fit dispersal free model
+      input.ls <- make.inputs(dat.ls = list(nrel = nrel,
+                                            nsites = nsites,
+                                            nperiods = nperiods,
+                                            ntraps = ntraps,
+                                            count.mat = count.mat.sim[sim.mod,,],
+                                            distances = distances,
+                                            times = times), 
+                              disp.model = 'no.dispersal',
+                              count.model = 'neg.binom', dist.cutoff = 50, 
+                              sigma.type = 'none') 
+      Parameters$log_sig_disp_mu <- 0
+      Parameters$log_sig_disp_eps <- rep(0, nperiods)
+      
+      model <- MakeADFun(data = input.ls$Data, parameters = Parameters, 
+                         map = input.ls$Map, 
+                         DLL="DM_MM_sig")
+      model$env$beSilent()
+      Opt = nlminb(start=model$par, objective=model$fn, gradient=model$gr)
+      fitted.mods[[sim.mod]][[nmods+1]][[ii]] <- model
     
   }
 }
@@ -170,31 +187,55 @@ for(sim.mod in 1:nmods) {
   for(est.mod in 1:nmods) {
     for(struc in 1:length(disp.structures)) {
       sdreports <- sapply(fitted.mods[[sim.mod]][[est.mod]][[struc]], sdreport)
-      surv.mat[,struc] <- apply(sdreports, 2, function(x) x['value']$value['t_max'])
-      pct.at.dist.mat[,struc] <- apply(sdreports, 2, function(x) x['value']$value['pct_at_dist'])
-      fifty.pct.mat[,struc] <- apply(sdreports, 2, function(x) x['value']$value['fifty_pct'])
+      surv.mat[,struc] <- apply(sdreports, 2, function(x) 
+        if(x$pdHess) {
+          x['value']$value['annual_mort']
+        } else NA)
+      pct.at.dist.mat[,struc] <- apply(sdreports, 2, function(x) 
+        if(x$pdHess) {
+          x['value']$value['pct_at_dist']
+        } else NA)
+      fifty.pct.mat[,struc] <- apply(sdreports, 2, function(x) 
+        if(x$pdHess) {
+          x['value']$value['fifty_pct']
+        } else NA)
     }
-    sim.res[[sim.mod]][[est.mod]] <- data.frame(t.max=as.vector(surv.mat),
+    sim.res[[sim.mod]][[est.mod]] <- data.frame(annual.mort=as.vector(surv.mat),
                                                  pct.at.dist=as.vector(pct.at.dist.mat),
                                                  fifty.pct=as.vector(fifty.pct.mat),
                                                  disp.str=rep(disp.structures, each=nreps),
                                                  est.mod=disp.mods[est.mod],
                                                  sim.mod=disp.mods[sim.mod],
-                                                 stringsAsFactors = FALSE) 
+                                                 stringsAsFactors = FALSE)
   }
-  # note slope coefficient from the nb regression is log(S), not S
-  sim.res[[sim.mod]][[nmods+1]] <- sapply(fitted.mods[[sim.mod]][[nmods+1]],
-                                function(x) 
-                                  # tryCatch(-4.22/(coef(x)['times']*365),
-                                  tryCatch(exp((1.46-log(-(coef(x)['times']*365)))/1.01),
-                                                     error=function(e) return(NA))) %>%
-    data.frame(t.max=., pct.at.dist=NA, fifty.pct=NA, disp.str=NA, est.mod='no dispersal', 
-               sim.mod=disp.mods[sim.mod], stringsAsFactors = FALSE)
-                                  # S = exp(nb glm estimate)
-                                  # M = -log(S)
-                                  # convert daily to annual rate
-                                  # convert to max age
-                                  # matrix(ncol=3, byrow=TRUE)
+  
+  sdreports <- sapply(fitted.mods[[sim.mod]][[nmods+1]], sdreport)
+  surv.vec <- apply(sdreports, 2, function(x) 
+    if(x$pdHess) {
+      x['value']$value['annual_mort']
+    } else NA)
+  sim.res[[sim.mod]][[nmods+1]] <- data.frame(annual.mort=surv.vec,
+                                              pct.at.dist=NA,
+                                              fifty.pct=NA,
+                                              disp.str=NA,
+                                              est.mod='no.dispersal',
+                                              sim.mod=disp.mods[sim.mod],
+                                              stringsAsFactors = FALSE)
+
+  # from when no dispersal model was fit with glm.nb
+  # sapply(fitted.mods[[sim.mod]][[nmods+1]],
+  #                               function(x) 
+  #                                 # tryCatch(-4.22/(coef(x)['times']*365),
+  #                                 # tryCatch(exp((1.46-log(-(coef(x)['times']*365)))/1.01),
+  #                                 tryCatch(-coef(x)['times']*365,
+  #                                          error=function(e) return(NA))) %>%
+  #   data.frame(annual.mort=., pct.at.dist=NA, fifty.pct=NA, disp.str=NA, est.mod='no dispersal', 
+  #              sim.mod=disp.mods[sim.mod], stringsAsFactors = FALSE)
+  #                                 # S = exp(nb glm estimate)
+  #                                 # M = -log(S)
+  #                                 # convert daily to annual rate
+  #                                 # convert to max age
+  #                                 # matrix(ncol=3, byrow=TRUE)
   sim.ls[[sim.mod]] <- do.call(rbind, sim.res[[sim.mod]][1:nmods]) %>%
     rbind(sim.res[[sim.mod]][[nmods+1]])
       # aic.sim[sim.mod, 4,] <- sapply(fitted.mods[[sim.mod]][[4]], function(mod)
@@ -208,4 +249,4 @@ sim.res.df$disp.str[is.na(sim.res.df$disp.str)] <- 'no dispersal'
 
 # save results ------------------------------------------------------------
 
-save(sim.res.df, aic.sim, t.max, file = 'Code/sim-results.RData')
+save(sim.res.df, aic.sim, annual.mort, sig.disp, nreps, file = 'Code/sim-results.RData')

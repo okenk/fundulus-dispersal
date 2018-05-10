@@ -38,6 +38,7 @@ Type objective_function<Type>::operator() ()
   matrix<Type> outmat(nsites * nperiods, 5);// * ntraps, 5);
   Type fifty_pct;
   Type pct_at_dist;
+  Type fifty_pct_global;
     
   Type f = 0; // objective function value
   
@@ -75,6 +76,8 @@ Type objective_function<Type>::operator() ()
         // dist_factor(counter) = (Type(2.0)/PI) * atan((distances(j)+site_width)/sig_disp) - //F(d+site_width)
         //   (Type(2.0)/PI) * atan((distances(j)-site_width)/sig_disp); //F(d-site_width)
         dist_factor(counter) = Type(2.0) / (PI*sig_disp(i) * (1 + pow(distances(j)/sig_disp(i),2)));
+      } else if(disp_model==4) { // 4 = no dispersal
+        dist_factor(counter) = 1;
       }
       
       // predicted counts, NLL, outmatrix, etc.
@@ -98,17 +101,22 @@ Type objective_function<Type>::operator() ()
     }   
   }
   Type annual_mort = -log(survival)*365;
-  Type t_max = 4.22/annual_mort;
+  Type t_max = exp((1.46-log(annual_mort))/1.01);;
   
+// arbitrarily chose the fourth sampling occasion to estimate these. 
+// also doing sigma_mu, but interpretation of that depends on selected model structure
   if(disp_model == 1) { // 1 = half-normal
-    fifty_pct = qnorm(Type(0.75), Type(0.0), sig_disp_mu); // want middle of positive half of distn
-    pct_at_dist = (pnorm(dist_cutoff, Type(0.0), sig_disp_mu) - Type(0.5)) * Type(2.0);
+    fifty_pct = qnorm(Type(0.75), Type(0.0), sig_disp(4)); // want middle of positive half of distn
+    pct_at_dist = (pnorm(dist_cutoff, Type(0.0), sig_disp(4)) - Type(0.5)) * Type(2.0);
+    fifty_pct_global = qnorm(Type(0.75), Type(0.0), sig_disp_mu); // want middle of positive half of distn
   } else if(disp_model == 2) { // 2 = exponential
-    fifty_pct = qexp(Type(0.5), pow(sig_disp_mu, -1));
-    pct_at_dist = pexp(dist_cutoff, pow(sig_disp_mu, -1));
+    fifty_pct = qexp(Type(0.5), pow(sig_disp(4), -1));
+    pct_at_dist = pexp(dist_cutoff, pow(sig_disp(4), -1));
+    fifty_pct_global = qexp(Type(0.5), pow(sig_disp_mu, -1));
   } else if(disp_model == 3) { // 3 = half-cauchy
-    fifty_pct = sig_disp_mu*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
-    pct_at_dist = pow(PI, -1) * atan(dist_cutoff/sig_disp_mu) * Type(2.0);
+    fifty_pct = sig_disp(4)*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
+    pct_at_dist = pow(PI, -1) * atan(dist_cutoff/sig_disp(4)) * Type(2.0);
+    fifty_pct_global = sig_disp_mu*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
   }
   
   ADREPORT(survival);
@@ -116,9 +124,11 @@ Type objective_function<Type>::operator() ()
   ADREPORT(t_max);
   ADREPORT(fifty_pct);
   ADREPORT(pct_at_dist);
+  ADREPORT(fifty_pct_global);
   ADREPORT(detectability);
   ADREPORT(sig_disp_mu);
   ADREPORT(sig_disp);
+  
   
   REPORT(outmat);
   return f;
