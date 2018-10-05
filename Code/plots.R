@@ -259,10 +259,19 @@ for(disp.mod in c('normal', 'exponential', 'cauchy')) {
           round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[m.ind], 2))
         mort.arr[disp.mod, creek, mod.struc-1] <- sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[m.ind]
         
-        print.mat[row.marker, c(NA,2*table.width+6, 4, table.width+5)[mod.struc]] <- paste0(
+        if(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[t.max.ind] < 100) {
+          print.mat[row.marker, c(NA,2*table.width+6, 4, table.width+5)[mod.struc]] <- paste0(
           round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[t.max.ind], 2),
           '±',
           round(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[t.max.ind], 2))
+        } else {
+          print.mat[row.marker, c(NA,2*table.width+6, 4, table.width+5)[mod.struc]] <- paste(
+            formatC(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[t.max.ind],
+                    format='E', digits=2),
+            '±',
+            formatC(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$sd[t.max.ind], 
+                    format='E', digits=2))
+        }
         
         if(sdreport(emp.mod.fits[[creek]][[disp.mod]][[mod.struc]])$value[fifty.pct.ind] < 100) {
           print.mat[row.marker, c(NA,NA, 5, table.width+6)[mod.struc]] <- paste0(
