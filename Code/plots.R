@@ -307,7 +307,8 @@ mean(disp.arr[,1:2, 2:3], na.rm=T)
 mean(disp.3wk.arr[,1:2, 2:3], na.rm=T)
 mean(mort.arr[,1:2, 2:3], na.rm=T)
 
-
+do.call(cbind, sdreport(emp.mod.fits[[2]]$exponential[[4]])[1:2])['sig_disp_sig',]
+do.call(cbind, sdreport(emp.mod.fits[[2]]$exponential[[4]])[1:2])['sig_disp_sig',] * 0.95 / 0.05
 
 
 # Plot data and fits from best model --------------------------------------
@@ -380,5 +381,4 @@ report %>%
   ylim(obscount=1.05*c(0,max(report$obscount))) +
   theme_classic(base_size = 18)
 dev.off()
-
 

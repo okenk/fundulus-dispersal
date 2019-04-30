@@ -113,7 +113,7 @@ Type objective_function<Type>::operator() ()
     fifty_pct = qexp(Type(0.5), pow(sig_disp(4), -1));
     pct_at_dist = pexp(dist_cutoff, pow(sig_disp(4), -1));
     fifty_pct_global = qexp(Type(0.5), pow(sig_disp_mu, -1));
-  } else if(disp_model == 3) { // 3 = half-cauchy
+  } else { // 3 = half-cauchy
     fifty_pct = sig_disp(4)*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
     pct_at_dist = pow(PI, -1) * atan(dist_cutoff/sig_disp(4)) * Type(2.0);
     fifty_pct_global = sig_disp_mu*tan(PI*(Type(0.75) - Type(0.5))); // want middle of positive half of distn
@@ -127,6 +127,7 @@ Type objective_function<Type>::operator() ()
   ADREPORT(fifty_pct_global);
   ADREPORT(detectability);
   ADREPORT(sig_disp_mu);
+  ADREPORT(sig_disp_sig);
   ADREPORT(sig_disp);
   
   
