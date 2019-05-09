@@ -382,3 +382,24 @@ report %>%
   theme_classic(base_size = 18)
 dev.off()
 
+
+# Summary data for appendix table -----------------------------------------
+
+report.new <- mutate(report, creek = as.numeric(gsub('Creek ', '', creek)))
+library(lubridate)
+
+dates <- c('10/11/12', '10/12/12', '10/13/12', '10/14/12', '10/20/12', '11/1/12', '12/8/12', '5/20/12', '5/21/12', 
+           '3/12/13', '6/2/13', '7/3/13', '7/27/13', '9/14/13') %>% mdy
+
+tagging.dates <- dates[c(2,1,8,9)]
+out.list <- list()
+
+for(cr in 1:4) {
+  dat <- filter(report.new, creek == cr)
+  times <- unique(dat$times)
+  out.list[[cr]] <- tibble(date = tagging.dates[cr] + ddays(times)) %>%
+    cbind(times) %>%
+    right_join(dat) %>%
+    group_by(creek, times) %>%
+    summarize(count = sum(obscount))
+}
