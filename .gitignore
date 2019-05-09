@@ -1,6 +1,5 @@
 *.png
 *.pdf
-*.dat
 *.docx
 *.html
 *.dropbox
@@ -36,4 +35,5 @@
 *.out
 *.app
 .Rproj.user
-.Rhistory
+*.Rhistory
+*.DS_Store
